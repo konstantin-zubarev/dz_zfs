@@ -1,0 +1,46 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+home = ENV['HOME']
+
+Vagrant.configure(2) do |config|
+
+  config.vm.define "boxname" do |box|
+    storage1 = home + '/VirtualBox VMs/zfs/disk/zfs/storage1.vdi'
+    storage2 = home + '/VirtualBox VMs/zfs/disk/zfs/storage2.vdi'
+    storage3 = home + '/VirtualBox VMs/zfs/disk/zfs/storage3.vdi'
+    storage4 = home + '/VirtualBox VMs/zfs/disk/zfs/storage4.vdi'
+    box.vm.network "private_network", adapter: 2, ip: '192.168.11.110'
+    box.vm.hostname = "zfs"
+    box.vm.box = "centos/7"
+    box.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "zfs"
+      virtualbox.customize ["modifyvm", :id, "--memory", "1024"]
+      virtualbox.customize ["modifyvm", :id, "--cpus", "1"]
+      unless File.exist?(storage1)
+        virtualbox.customize ['createhd', '--filename', storage1, '--variant', 'Fixed', '--size', 5120]
+        virtualbox.customize ['createhd', '--filename', storage2, '--variant', 'Fixed', '--size', 5120]
+        virtualbox.customize ['createhd', '--filename', storage3, '--variant', 'Fixed', '--size', 5120]
+        virtualbox.customize ['createhd', '--filename', storage4, '--variant', 'Fixed', '--size', 5120]
+        need_controller = true
+      end
+      if need_controller == true
+        virtualbox.customize ["storagectl", :id, "--name", "SATA", "--add", "sata" ]
+      end
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', storage1]
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 2, '--device', 0, '--type', 'hdd', '--medium', storage2]
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 3, '--device', 0, '--type', 'hdd', '--medium', storage3]
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 4, '--device', 0, '--type', 'hdd', '--medium', storage4]
+      end
+  end
+  
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  config.vm.provision "shell", run: "always", inline: <<-SHELL
+    mkdir -p ~root/.ssh
+    cp ~vagrant/.ssh/auth* ~root/.ssh
+  SHELL
+
+  config.vm.provision "shell", path: "./scripts/install.sh"
+
+end
